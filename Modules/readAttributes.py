@@ -368,6 +368,21 @@ def retreive_attributes_from_default_plugin_list(self, key, Ep, cluster):
     return targetAttribute
 
 
+def _generic_read_attribute_request(self, key, cluster):
+    self.log.logging("ReadAttributes", "Debug", f"ReadAttributeRequest_{cluster} - Key: {key}", nwkid=key)
+    for ep_out in getListOfEpForCluster(self, key, cluster):
+        list_attributes = list(dict.fromkeys(retreive_ListOfAttributesByCluster(self, key, ep_out, cluster)))
+        if list_attributes:
+            ReadAttributeReq(self, key, ZIGATE_EP, ep_out, cluster, list_attributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
+
+
+def _make_cluster_handler(cluster):
+    def _handler(self, key):
+        _generic_read_attribute_request(self, key, cluster)
+    _handler.__name__ = f"ReadAttributeRequest_{cluster}"
+    return _handler
+
+
 def ping_tuya_device(self, key):
 
     PING_CLUSTER = "0000" 
@@ -785,61 +800,6 @@ def ReadAttributeRequest_0020(self, key):
             ReadAttributeReq(self, key, ZIGATE_EP, EPout, "0020", 0x0000)
 
 
-def ReadAttributeRequest_000c(self, key):
-    # Cluster 0x000c with attribute 0x0055 / Xiaomi Power and Metering
-    self.log.logging("ReadAttributes", "Debug", "ReadAttributeRequest_000c - Key: %s " % key, nwkid=key)
-
-    
-    
-    ListOfEp = getListOfEpForCluster(self, key, "000c")
-    for EPout in ListOfEp:
-        listAttributes = retreive_ListOfAttributesByCluster(self, key, EPout, "000c")
-        if listAttributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                "Request 0x000c info via Read Attribute request: " + key + " EPout = " + EPout,
-                nwkid=key,
-            )
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "000c", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
-
-
-def ReadAttributeRequest_0019(self, key):
-    # Cluster 0x000c with attribute 0x0055 / Xiaomi Power and Metering
-    self.log.logging("ReadAttributes", "Debug", "ReadAttributeRequest_0019 - Key: %s " % key, nwkid=key)
-
-    ListOfEp = getListOfEpForCluster(self, key, "0019")
-    for EPout in ListOfEp:
-        listAttributes = retreive_ListOfAttributesByCluster(self, key, EPout, "0019")
-        if listAttributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                "Request 0x0019 info via Read Attribute request: " + key + " EPout = " + EPout,
-                nwkid=key,
-            )
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "0019", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
-
-
-def ReadAttributeRequest_0100(self, key):
-
-    self.log.logging("ReadAttributes", "Debug", "Request shade Configuration status Read Attribute request: " + key, nwkid=key)
-
-    ListOfEp = getListOfEpForCluster(self, key, "0100")
-    for EPout in ListOfEp:
-        listAttributes = []
-        for iterAttr in retreive_ListOfAttributesByCluster(self, key, EPout, "0100"):
-            if iterAttr not in listAttributes:
-                listAttributes.append(iterAttr)
-
-        if listAttributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                "Request 0x0100 info via Read Attribute request: " + key + " EPout = " + EPout,
-                nwkid=key,
-            )
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "0100", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
 
 
 def ReadAttributeRequest_0101(self, key):
@@ -1056,24 +1016,7 @@ def ReadAttributeRequest_0204(self, key):
 
 
 def ReadAttributeRequest_0300(self, key):
-    # Cluster 0x0300 - Color Control
-
-    self.log.logging("ReadAttributes", "Debug", "ReadAttributeRequest_0300 - Key: %s " % key, nwkid=key)
-    ListOfEp = getListOfEpForCluster(self, key, "0300")
-    for EPout in ListOfEp:
-        listAttributes = []
-        for iterAttr in retreive_ListOfAttributesByCluster(self, key, EPout, "0300"):
-            if iterAttr not in listAttributes:
-                listAttributes.append(iterAttr)
-
-        if listAttributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                "Request Color Temp infos via Read Attribute request: " + key + " EPout = " + EPout,
-                nwkid=key,
-            )
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "0300", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
+    _generic_read_attribute_request(self, key, "0300")
 
 def ReadAttributeRequest_0300_Color_Capabilities(self, key):
     # Cluster 0x0300 - Color Control
@@ -1083,25 +1026,6 @@ def ReadAttributeRequest_0300_Color_Capabilities(self, key):
     for EPout in ListOfEp:
         ReadAttributeReq(self, key, ZIGATE_EP, EPout, "0300", [ 0x400A], ackIsDisabled=is_ack_tobe_disabled(self, key))
    
-def ReadAttributeRequest_0400(self, key):
-
-    self.log.logging("ReadAttributes", "Debug", "ReadAttributeRequest_0400 - Key: %s " % key, nwkid=key)
-
-    ListOfEp = getListOfEpForCluster(self, key, "0400")
-    for EPout in ListOfEp:
-        listAttributes = []
-        for iterAttr in retreive_ListOfAttributesByCluster(self, key, EPout, "0400"):
-            if iterAttr not in listAttributes:
-                listAttributes.append(iterAttr)
-
-        if listAttributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                "Illuminance info via Read Attribute request: " + key + " EPout = " + EPout,
-                nwkid=key,
-            )
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "0400", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
 
 
 def ReadAttributeRequest_0402(self, key):
@@ -1298,44 +1222,6 @@ def ReadAttributeRequest_0406_philips_0030(self, key):
             ackIsDisabled=is_ack_tobe_disabled(self, key),
         )
 
-def ReadAttributeRequest_0500(self, key):
-
-    self.log.logging("ReadAttributes", "Debug", "ReadAttributeRequest_0500 - Key: %s " % key, nwkid=key)
-    ListOfEp = getListOfEpForCluster(self, key, "0500")
-    for EPout in ListOfEp:
-        listAttributes = []
-        for iterAttr in retreive_ListOfAttributesByCluster(self, key, EPout, "0500"):
-            if iterAttr not in listAttributes:
-                listAttributes.append(iterAttr)
-
-        if listAttributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                "ReadAttributeRequest_0500 - %s/%s - %s" % (key, EPout, listAttributes),
-                nwkid=key,
-            )
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "0500", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
-
-
-def ReadAttributeRequest_0502(self, key):
-
-    self.log.logging("ReadAttributes", "Debug", "ReadAttributeRequest_0502 - Key: %s " % key, nwkid=key)
-    ListOfEp = getListOfEpForCluster(self, key, "0502")
-    for EPout in ListOfEp:
-        listAttributes = []
-        for iterAttr in retreive_ListOfAttributesByCluster(self, key, EPout, "0502"):
-            if iterAttr not in listAttributes:
-                listAttributes.append(iterAttr)
-
-        if listAttributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                "ReadAttributeRequest_0502 - %s/%s - %s" % (key, EPout, listAttributes),
-                nwkid=key,
-            )
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "0502", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
 
 
 def ReadAttributeRequest_0702(self, key):
@@ -1403,43 +1289,6 @@ def ReadAttributeRequest_0702(self, key):
                 checkTime=False,
             )
 
-def ReadAttributeRequest_0705(self, key):
-
-    self.log.logging("ReadAttributes", "Debug", "ReadAttributeRequest_0705 - Key: %s " % key, nwkid=key)
-    ListOfEp = getListOfEpForCluster(self, key, "0705")
-    for EPout in ListOfEp:
-        listAttributes = []
-        for iterAttr in retreive_ListOfAttributesByCluster(self, key, EPout, "0705"):
-            if iterAttr not in listAttributes:
-                listAttributes.append(iterAttr)
-
-        if listAttributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                "ReadAttributeRequest_0705 - %s/%s - %s" % (key, EPout, listAttributes),
-                nwkid=key,
-            )
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "0705", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
-
-def ReadAttributeRequest_070d(self, key):
-
-    self.log.logging("ReadAttributes", "Debug", "ReadAttributeRequest_070d - Key: %s " % key, nwkid=key)
-    ListOfEp = getListOfEpForCluster(self, key, "070d")
-    for EPout in ListOfEp:
-        listAttributes = []
-        for iterAttr in retreive_ListOfAttributesByCluster(self, key, EPout, "070d"):
-            if iterAttr not in listAttributes:
-                listAttributes.append(iterAttr)
-
-        if listAttributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                "ReadAttributeRequest_070d - %s/%s - %s" % (key, EPout, listAttributes),
-                nwkid=key,
-            )
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "070d", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
 
 def ReadAttributeRequest_0702_0000(self, key):
     # Cluster 0x0702 Metering / Specific 0x0000
@@ -1588,48 +1437,6 @@ def ReadAttributeRequest_0702_PC321(self, key):
     ReadAttributeReq(self, key, ZIGATE_EP, EPout, "0702", listAttributes, manufacturer_spec="01",manufacturer="113c", ackIsDisabled=is_ack_tobe_disabled(self, key))
     
 
-def ReadAttributeRequest_0b01(self, key):
-    # Cluster 0x0b04 Metering
-
-    self.log.logging("ReadAttributes", "Debug", "ReadAttributeRequest_0b04 - Key: %s " % key, nwkid=key)
-    _manuf = "Manufacturer" in self.ListOfDevices[key]
-    ListOfEp = getListOfEpForCluster(self, key, "0b01")
-    for EPout in ListOfEp:
-        listAttributes = []
-        for iterAttr in retreive_ListOfAttributesByCluster(self, key, EPout, "0b01"):
-            if iterAttr not in listAttributes:
-                listAttributes.append(iterAttr)
-
-        if listAttributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                "Request Metering info via Read Attribute request: " + key + " EPout = " + EPout,
-                nwkid=key,
-            )
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "0b01", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
-
-
-def ReadAttributeRequest_0b04(self, key):
-    # Cluster 0x0b04 Metering
-
-    self.log.logging("ReadAttributes", "Debug", "ReadAttributeRequest_0b04 - Key: %s " % key, nwkid=key)
-    _manuf = "Manufacturer" in self.ListOfDevices[key]
-    ListOfEp = getListOfEpForCluster(self, key, "0b04")
-    for EPout in ListOfEp:
-        listAttributes = []
-        for iterAttr in retreive_ListOfAttributesByCluster(self, key, EPout, "0b04"):
-            if iterAttr not in listAttributes:
-                listAttributes.append(iterAttr)
-
-        if listAttributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                "Request Metering info via Read Attribute request: " + key + " EPout = " + EPout,
-                nwkid=key,
-            )
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "0b04", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
 
 
 def ReadAttributeRequest_0b04_0505(self, key):
@@ -1677,75 +1484,6 @@ def ReadAttributeRequest_0b04_050b_0505_0508(self, key):
         ReadAttributeReq( self, key, ZIGATE_EP, EPout, "0b04", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
 
 
-def ReadAttributeRequest_0b05(self, key):
-    # Cluster Diagnostic
-
-    self.log.logging("ReadAttributes", "Debug", "ReadAttributeRequest_0b05 - Key: %s " % key, nwkid=key)
-
-    ListOfEp = getListOfEpForCluster(self, key, "0b05")
-    for EPout in ListOfEp:
-        listAttributes = []
-        for iterAttr in retreive_ListOfAttributesByCluster(self, key, EPout, "0b05"):
-            if iterAttr not in listAttributes:
-                listAttributes.append(iterAttr)
-
-        if listAttributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                "Request Diagnostic info via Read Attribute request: " + key + " EPout = " + EPout,
-                nwkid=key,
-            )
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "0b05", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
-
-
-def ReadAttributeRequest_000f(self, key):
-
-    self.log.logging("ReadAttributes", "Debug", "ReadAttributeRequest_000f - Key: %s " % key, nwkid=key)
-    ListOfEp = getListOfEpForCluster(self, key, "000f")
-    for EPout in ListOfEp:
-        listAttributes = []
-        for iterAttr in retreive_ListOfAttributesByCluster(self, key, EPout, "000f"):
-            if iterAttr not in listAttributes:
-                listAttributes.append(iterAttr)
-
-        if listAttributes:
-            self.log.logging("ReadAttributes", "Debug", " Read Attribute request: " + key + " EPout = " + EPout, nwkid=key)
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "000f", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
-
-def ReadAttributeRequest_e000(self, key):
-    self.log.logging("ReadAttributes", "Debug", "ReadAttributeRequest_e000 - Key: %s " % key, nwkid=key)
-    ListOfEp = getListOfEpForCluster(self, key, "e000")
-    for EPout in ListOfEp:
-        listAttributes = []
-        for iterAttr in retreive_ListOfAttributesByCluster(self, key, EPout, "e000"):
-            if iterAttr not in listAttributes:
-                listAttributes.append(iterAttr)
-        if listAttributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                "Request Legrand attributes info via Read Attribute request: " + key + " EPout = " + EPout,
-                nwkid=key,
-            )
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "e000", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
-
-def ReadAttributeRequest_e001(self, key):
-    self.log.logging("ReadAttributes", "Debug", "ReadAttributeRequest_e001 - Key: %s " % key, nwkid=key)
-    ListOfEp = getListOfEpForCluster(self, key, "e001")
-    for EPout in ListOfEp:
-        listAttributes = []
-        for iterAttr in retreive_ListOfAttributesByCluster(self, key, EPout, "e001"):
-            if iterAttr not in listAttributes:
-                listAttributes.append(iterAttr)
-        if listAttributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                "Request Legrand attributes info via Read Attribute request: " + key + " EPout = " + EPout,
-                nwkid=key,
-            )
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "e001", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
 
 def ReadAttributeRequest_fc00(self, key):
     pass
@@ -1775,42 +1513,9 @@ def ReadAttributeRequest_fcc0(self, key):
             ReadAttributeReq(self, key, ZIGATE_EP, EPout, "fcc0", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
 
 def ReadAttributeRequest_fc01(self, key):
-    # Cluster Legrand
-    self.log.logging("ReadAttributes", "Debug", "ReadAttributeRequest_fc01 - Key: %s " % key, nwkid=key)
-    ListOfEp = getListOfEpForCluster(self, key, "fc01")
-
-    for EPout in ListOfEp:
-        listAttributes = []
-        for iterAttr in retreive_ListOfAttributesByCluster(self, key, EPout, "fc01"):
-            if iterAttr not in listAttributes:
-                listAttributes.append(iterAttr)
-
-        if listAttributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                "Request Legrand attributes info via Read Attribute request: " + key + " EPout = " + EPout,
-                nwkid=key,
-            )
-            # ReadAttributeReq( self, key, ZIGATE_EP, EPout, "fc01", listAttributes, manufacturer_spec = '01', manufacturer = '1021', ackIsDisabled = is_ack_tobe_disabled(self, key))
-            ReadAttributeReq(self, key, ZIGATE_EP, EPout, "fc01", listAttributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
+    _generic_read_attribute_request(self, key, "fc01")
 
 
-def ReadAttributeRequest_fc11(self, key):
-    self.log.logging("ReadAttributes", "Debug", f"ReadAttributeRequest_fc11 - Key: {key}", nwkid=key)
-    list_of_ep = getListOfEpForCluster(self, key, "fc11")
-
-    for ep_out in list_of_ep:
-        list_attributes = list(set(retreive_ListOfAttributesByCluster(self, key, ep_out, "fc11")))
-
-        if list_attributes:
-            self.log.logging(
-                "ReadAttributes",
-                "Debug",
-                f"Request Legrand attributes info via Read Attribute request: {key} EPout = {ep_out}",
-                nwkid=key,
-            )
-            ReadAttributeReq(self, key, ZIGATE_EP, ep_out, "fc11", list_attributes, ackIsDisabled=is_ack_tobe_disabled(self, key))
 
 def ReadAttributeRequest_fc21(self, key):
     # Cluster PFX Profalux/ Manufacturer specific
@@ -2024,35 +1729,35 @@ READ_ATTRIBUTES_REQUEST = {
     "0002": (ReadAttributeRequest_0002, "polling0002"),
     "0006": (ReadAttributeRequest_0006, "pollingONOFF"),
     "0008": (ReadAttributeRequest_0008, "pollingLvlControl"),
-    "000c": (ReadAttributeRequest_000c, "polling000c"),
-    #'000f' : ( ReadAttributeRequest_000f, 'polling000f' ),
-    "0019": (ReadAttributeRequest_0019, "polling0019"),
+    "000c": (_make_cluster_handler("000c"), "polling000c"),
+    #'000f' : ( _make_cluster_handler('000f'), 'polling000f' ),
+    "0019": (_make_cluster_handler("0019"), "polling0019"),
     "0020": (ReadAttributeRequest_0020, "polling0020"),
-    "0100": (ReadAttributeRequest_0100, "polling0100"),
+    "0100": (_make_cluster_handler("0100"), "polling0100"),
     "0101": (ReadAttributeRequest_0101, "polling0101"),
     "0102": (ReadAttributeRequest_0102, "polling0102"),
     "0201": (ReadAttributeRequest_0201, "polling0201"),
     "0202": (ReadAttributeRequest_0202, "polling0202"),
     "0204": (ReadAttributeRequest_0204, "polling0204"),
     "0300": (ReadAttributeRequest_0300, "polling0300"),
-    "0400": (ReadAttributeRequest_0400, "polling0400"),
+    "0400": (_make_cluster_handler("0400"), "polling0400"),
     "0402": (ReadAttributeRequest_0402, "polling0402"),
     "0403": (ReadAttributeRequest_0403, "polling0403"),
     "0405": (ReadAttributeRequest_0405, "polling0405"),
     "0406": (ReadAttributeRequest_0406, "polling0406"),
-    "0500": (ReadAttributeRequest_0500, "polling0500"),
-    "0502": (ReadAttributeRequest_0502, "polling0502"),
+    "0500": (_make_cluster_handler("0500"), "polling0500"),
+    "0502": (_make_cluster_handler("0502"), "polling0502"),
     "0702": (ReadAttributeRequest_0702, "polling0702"),
-    "0705": (ReadAttributeRequest_0705, "polling0702"),
-    "070d": (ReadAttributeRequest_070d, "polling0702"),
-    "0b01": (ReadAttributeRequest_0b01, "polling0b01"),
-    "0b04": (ReadAttributeRequest_0b04, "polling0b04"),
-    "0b05": (ReadAttributeRequest_0b05, "polling0b05"),
-    "e000": (ReadAttributeRequest_e000, "polling0b05"),
-    "e001": (ReadAttributeRequest_e001, "polling0b05"),
+    "0705": (_make_cluster_handler("0705"), "polling0702"),
+    "070d": (_make_cluster_handler("070d"), "polling0702"),
+    "0b01": (_make_cluster_handler("0b01"), "polling0b01"),
+    "0b04": (_make_cluster_handler("0b04"), "polling0b04"),
+    "0b05": (_make_cluster_handler("0b05"), "polling0b05"),
+    "e000": (_make_cluster_handler("e000"), "polling0b05"),
+    "e001": (_make_cluster_handler("e001"), "polling0b05"),
     "fcc0": (ReadAttributeRequest_fcc0, "pollingfcc0"),
     "fc01": (ReadAttributeRequest_fc01, "pollingfc01"),
-    "fc11": (ReadAttributeRequest_fc11, "pollingfc11"),
+    "fc11": (_make_cluster_handler("fc11"), "pollingfc11"),
     "fc21": (ReadAttributeRequest_fc21, "pollingfc21"),
     "fc40": (ReadAttributeRequest_fc40, "pollingfc40"),
     "fc7d": (ReadAttributeRequest_fc7d, "pollingfc7d"),
