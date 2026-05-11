@@ -91,17 +91,18 @@ class DomoticzAPIClient:
         # Async worker thread
         self._stop_event = threading.Event()
         self._queue = queue.PriorityQueue()
-        self._worker = threading.Thread(target=self._worker_loop, name="DomoticzAPI", daemon=False)
+        self._worker = threading.Thread(target=self._worker_loop, name="DomoticzAPI", daemon=True)
         self._worker.start()
 
-        # Per-device caches
+        # Per-device caches — guarded by _device_caches_lock
+        self._device_caches_lock = threading.Lock()
         self._device_caches = []
 
         self._parse_url()
 
     def stop(self):
         """Stops the worker thread cleanly."""
-        
+
         self.logging("Status", "Zigbee: ++ DomoticzDB Api thread stop requested")
         self._stop_event.set()
         try:
@@ -113,6 +114,10 @@ class DomoticzAPIClient:
             self.logging("Error", "DomoticzDB Api thread did not stop cleanly")
         else:
             self.logging("Debug", "Zigbee: ++ DomoticzDB Api thread stopped.")
+        # Break the circular reference DomoticzAPIClient._device_caches <-> DomoticzDeviceCache.api
+        # so the garbage collector can reclaim both objects without waiting for a GC cycle.
+        with self._device_caches_lock:
+            self._device_caches.clear()
 
 
     def logging(self, level, msg):
@@ -279,7 +284,7 @@ class DomoticzAPIClient:
                 continue
 
             if query is None:
-                continue
+                break  # sentinel received — exit the loop
 
             self.logging("Debug", f"_worker_loop - key: {cache_key} query: {query}")
             try:
@@ -289,10 +294,11 @@ class DomoticzAPIClient:
 
                 if data:
                     self._set_cache(cache_key, data)
-                    # Update per-device caches if relevant
+                    # Update per-device caches for getdevices responses only
                     if "rid=" in query or "result" in data:
-                        # getdevices for One or a list of Id
-                        for cache in self._device_caches:
+                        with self._device_caches_lock:
+                            caches = list(self._device_caches)
+                        for cache in caches:
                             cache.update_device_from_response(data)
 
             except Exception as e:
@@ -345,8 +351,9 @@ class DomoticzAPIClient:
         Args:
             device_cache (DomoticzDeviceCache): Device cache instance.
         """
-        if device_cache not in self._device_caches:
-            self._device_caches.append(device_cache)
+        with self._device_caches_lock:
+            if device_cache not in self._device_caches:
+                self._device_caches.append(device_cache)
         
 
 class DomoticzDeviceCache:
@@ -450,10 +457,28 @@ class DomoticzDeviceCache:
             return
 
         devices = data["result"]
+        if not isinstance(devices, list):
+            return
         self.api.logging("Debug", f"{len(devices)} devices received")
 
         for d in devices:
             self._update_single_device(d)
+
+        # After a full-device load (no rid= filter) prune entries for deleted devices.
+        # Per-device refreshes return only one entry, so pruning there would be premature.
+        if len(devices) > 1:
+            self._prune_stale_devices()
+
+    def _prune_stale_devices(self):
+        """Remove devices not seen in two full cache cycles to prevent unbounded growth."""
+        cutoff = time.time() - (2 * CACHE_TIMEOUT)
+        with self._lock:
+            stale = [idx for idx, ts in self._last_refresh.items() if ts < cutoff]
+            for idx in stale:
+                self.devices.pop(idx, None)
+                self._last_refresh.pop(idx, None)
+        if stale:
+            self.api.logging("Debug", f"Pruned {len(stale)} stale device cache entries")
 
     def _update_single_device(self, d):
         """
