@@ -91,7 +91,7 @@ class DomoticzAPIClient:
         # Async worker thread
         self._stop_event = threading.Event()
         self._queue = queue.PriorityQueue()
-        self._worker = threading.Thread(target=self._worker_loop, name="DomoticzAPI", daemon=True)
+        self._worker = threading.Thread(target=self._worker_loop, name="DomoticzAPI", daemon=False)
         self._worker.start()
 
         # Per-device caches — guarded by _device_caches_lock
