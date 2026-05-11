@@ -1014,6 +1014,8 @@ class BasePlugin:
         if self.HeartbeatCount % (3600 // HEARTBEAT) == 0:
             self.log.loggingCleaningErrorHistory()
             zigate_get_time(self)
+            if self.domoticz_api:
+                self.domoticz_api.dump_stats()
             #sendZigateCmd(self, "0017", "")
 
         if (

@@ -20,10 +20,12 @@ GitHub: https://github.com/zigbeefordomoticz/Domoticz-Zigbee
 """
 
 import base64
+import gc
 import json
 import queue
 import socket
 import ssl
+import sys
 import threading
 import time
 import urllib.parse
@@ -124,6 +126,47 @@ class DomoticzAPIClient:
         """Wrapper for logging through plugin logger."""
         if self.log:
             self.log.logging("DZapi", level, msg)
+
+    def dump_stats(self):
+        """
+        Log a diagnostic snapshot of all internal data-structure sizes.
+
+        Call this periodically (e.g. from the plugin heartbeat) to track
+        whether any structure is growing unexpectedly during a running session.
+        Summary lines are emitted at Log level (always written to the plugin
+        log file); detail lines are at Debug level.
+        """
+        with self._cache_lock:
+            cache_len = len(self._cache)
+            cache_keys = list(self._cache.keys())
+
+        with self._inflight_lock:
+            inflight_len = len(self._inflight)
+            inflight_items = list(self._inflight)
+
+        queue_len = self._queue.qsize()
+
+        with self._device_caches_lock:
+            num_caches = len(self._device_caches)
+            device_cache_stats = [c.dump_stats() for c in self._device_caches]
+
+        gc_counts = gc.get_count()
+
+        self.logging("Log", (
+            f"DomoticzDB stats | "
+            f"cache={cache_len}/{MAX_CACHE_SIZE} | "
+            f"inflight={inflight_len} | "
+            f"queue≈{queue_len} | "
+            f"device_caches={num_caches} | "
+            f"gc={gc_counts}"
+        ))
+        # Detail lines — only when Debug logging is active for the DZapi module
+        if cache_keys:
+            self.logging("Debug", f"  _cache keys: {cache_keys}")
+        if inflight_items:
+            self.logging("Debug", f"  _inflight:   {inflight_items}")
+        for stat in device_cache_stats:
+            self.logging("Log", f"  DeviceCache: {stat}")
 
     # ------------------------------
     # URL / Auth Helpers
@@ -389,6 +432,25 @@ class DomoticzDeviceCache:
         self.api.logging("Debug", "Dumping Domoticz Cache")
         for x in self.devices:
             self.api.logging("Debug", f"devices {x} : {self.devices[x]}")
+
+    def dump_stats(self):
+        """Return a diagnostic string with sizes of internal structures (called by DomoticzAPIClient.dump_stats)."""
+        with self._lock:
+            num_devices = len(self.devices)
+            num_refresh = len(self._last_refresh)
+            oldest = min(self._last_refresh.values(), default=0)
+            newest = max(self._last_refresh.values(), default=0)
+        age_oldest = int(time.time() - oldest) if oldest else -1
+        age_newest = int(time.time() - newest) if newest else -1
+        approx_bytes = sys.getsizeof(self.devices) + sum(
+            sys.getsizeof(v) for v in self.devices.values()
+        ) + sys.getsizeof(self._last_refresh)
+        return (
+            f"devices={num_devices} entries | "
+            f"_last_refresh={num_refresh} entries | "
+            f"oldest_entry={age_oldest}s ago | newest_entry={age_newest}s ago | "
+            f"approx_size={approx_bytes} bytes"
+        )
 
     def refresh(self):
         """
