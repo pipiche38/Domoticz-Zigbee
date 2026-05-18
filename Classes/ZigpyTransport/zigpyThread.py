@@ -75,7 +75,7 @@ from Classes.ZigpyTransport.tools import handle_thread_error
 from Modules.macPrefix import DELAY_FOR_VERY_KEY
 
 ERROR_TASK_CREATION_FAILED = 0xB6
-SEMAPHORE_TIMEOUT = 240  # seconds
+SEMAPHORE_TIMEOUT = 30   # seconds — tasks waiting beyond this indicate a stuck semaphore
 REQUEST_TIMEOUT = 8   # This is a given time for the request to be sent
 WAITING_TIME_BETWEEN_REQUESTS = .100
 MAX_CONCURRENT_REQUESTS_PER_DEVICE = 1
@@ -1814,9 +1814,13 @@ async def _limit_concurrency(self, destination, sequence):
 
     try:
         try:
-            await asyncio.wait_for(semaphore.acquire(), timeout=SEMAPHORE_TIMEOUT)
+            # asyncio.timeout() (Python 3.11+) cancels the current task directly,
+            # avoiding the asyncio.wait_for internal-wrapper-task race that can
+            # silently consume a semaphore slot on timeout.
+            async with asyncio.timeout(SEMAPHORE_TIMEOUT):
+                await semaphore.acquire()
             acquired = True
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self.log.logging(
                 "TransportZigpy", "Log",
                 f"Timeout waiting for concurrency slot for {nwkid}, request {sequence} skipped",

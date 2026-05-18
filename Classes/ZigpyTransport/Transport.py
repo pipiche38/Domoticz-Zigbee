@@ -14,6 +14,7 @@
 # Author: pipiche38
 #
 
+import asyncio
 import json
 import threading
 import time
@@ -256,6 +257,34 @@ class ZigpyTransport(object):
 
     def get_forwarder_queue(self):
         return self.forwarder_queue.qsize()
+
+    def dump_transport_stats(self):
+        """Log asyncio task count and semaphore state from the zigpy event loop.
+
+        Called from the main thread; schedules a coroutine in the zigpy loop so
+        that asyncio.all_tasks() is valid (it must be called from within the loop).
+        """
+        if self.zigpy_loop is None or self.zigpy_loop.is_closed():
+            return
+
+        async def _log_stats():
+            all_tasks = asyncio.all_tasks()
+            named = [(t.get_name(), t.done()) for t in all_tasks]
+            pending = [n for n, done in named if not done]
+            locked_sems = {
+                ieee: waiting
+                for ieee, waiting in self._currently_waiting_requests_list.items()
+                if waiting > 0
+            }
+            self.log.logging(
+                "TransportZigpy", "Log",
+                f"ZigpyTransport stats | asyncio_tasks={len(all_tasks)} "
+                f"(pending={len(pending)}) | "
+                f"writer_queue≈{self.writer_queue.qsize() if self.writer_queue else 'n/a'} | "
+                f"devices_with_queued_reqs={locked_sems}"
+            )
+
+        asyncio.run_coroutine_threadsafe(_log_stats(), self.zigpy_loop)
 
     def loadTransmit(self):
         if self.writer_queue is None:

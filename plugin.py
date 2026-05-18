@@ -1016,6 +1016,8 @@ class BasePlugin:
             zigate_get_time(self)
             if self.domoticz_api:
                 self.domoticz_api.dump_stats()
+            if self.zigbee_communication == "zigpy" and hasattr(self, "ControllerLink"):
+                self.ControllerLink.dump_transport_stats()
             #sendZigateCmd(self, "0017", "")
 
         if (
