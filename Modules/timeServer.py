@@ -25,9 +25,6 @@ from Modules.zigateConsts import ZIGATE_EP
 ZIGBEE_EPOCH = datetime(2000, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc)
 TUYA_EPOCTime = datetime(1970, 1, 1, 0, 0, 0, 0)
 
-# Cache DST results keyed by year — transitions don't change within a year.
-_dst_cache: dict = {}
-
 
 def get_local_timezone():
     """
@@ -114,8 +111,11 @@ def calculate_dst_times(self):
 
     current_year = datetime.now().year
 
-    if current_year in _dst_cache:
-        return _dst_cache[current_year]
+    # Cache on the plugin instance — each Domoticz plugin instance gets its own
+    # copy, which avoids shared state when multiple instances run in the same process.
+    instance_cache = self.__dict__.setdefault("_dst_cache", {})
+    if current_year in instance_cache:
+        return instance_cache[current_year]
 
     # Find the DST start and end times for the current year
     dst_start = None
@@ -162,7 +162,7 @@ def calculate_dst_times(self):
     dst_end_utc = int(dst_end.timestamp())
 
     result = dst_start_utc, dst_end_utc, dst_shift
-    _dst_cache[current_year] = result
+    instance_cache[current_year] = result
     return result
 
 
