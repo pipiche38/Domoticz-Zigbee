@@ -490,10 +490,16 @@ def get_device(self, ieee=None, nwk=None):
     1. Attempts the standard zigpy lookup. On success, calls
        _update_nkdids_if_needed() to ensure the plugin database is in sync
        with zigpy's view of the device's NWK address.
-    2. On KeyError (device not in zigpy's database), falls back to
-       self.callBackGetDevice() to query the plugin database. If found,
-       registers the device in zigpy via add_device() so future lookups
-       succeed without the fallback.
+    2. On KeyError (device not in zigpy's database), checks the plugin
+       database via callBackGetDevice() for diagnostics only. If the device
+       is known to the plugin but absent from zigpy's table, a warning is
+       logged — this indicates a pre-load gap at startup.
+
+    Note: add_device() is intentionally NOT called here. Calling it from
+    inside frame-processing context (get_device is invoked on every frame)
+    triggers ZCL cluster setup and event listener registration in zigpy ≥ 1.2,
+    causing unbounded EventListener accumulation. Devices must be registered
+    via handle_join() or pre-loaded at startup instead.
 
     Args:
         ieee: The IEEE (EUI64) address of the device, or None.
@@ -515,16 +521,19 @@ def get_device(self, ieee=None, nwk=None):
         _update_nkdids_if_needed(self, dev.ieee, dev.nwk )
 
     except KeyError:
-        # Not found in zigpy Db, let see if we can get it into the Plugin Db
+        # Not found in zigpy's device table.
+        # All known devices should have been pre-loaded at startup.
+        # If we still miss, log for diagnostics but do not call add_device()
+        # from inside frame-processing context — that can trigger listener
+        # registration side-effects in zigpy >= 1.2.
         if self.callBackGetDevice:
-            if nwk is not None:
-                nwk = nwk.serialize()[::-1].hex()
-            if ieee is not None:
-                ieee = "%016x" % zigpy_t.uint64_t.deserialize(ieee.serialize())[0]
-            zfd_dev = self.callBackGetDevice(ieee, nwk)
-            if zfd_dev is not None:
-                (nwk, ieee) = zfd_dev
-                dev = self.add_device(zigpy_t.EUI64(zigpy_t.uint64_t(ieee).serialize()),nwk)
+            _nwk = nwk.serialize()[::-1].hex() if nwk is not None else None
+            _ieee = "%016x" % zigpy_t.uint64_t.deserialize(ieee.serialize())[0] if ieee is not None else None
+            if self.callBackGetDevice(_ieee, _nwk) is not None:
+                LOGGER.warning(
+                    "get_device miss for a known plugin device ieee=%s nwk=%s — "
+                    "device was not pre-loaded at startup", _ieee, _nwk
+                )
 
     if dev is not None:
         return dev
