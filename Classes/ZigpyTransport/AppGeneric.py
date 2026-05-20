@@ -542,6 +542,33 @@ def get_device(self, ieee=None, nwk=None):
     raise KeyError
 
 
+def _preload_devices_from_plugin_db(self):
+    """
+    Pre-populate zigpy's device table from the plugin database at startup.
+
+    Calls add_device() once per device that is known to the plugin but absent
+    from zigpy's own device table (which is populated by load_network_info).
+    Running this at startup — before the radio starts delivering frames —
+    ensures get_device() succeeds via super() for all known devices without
+    needing a fallback that would call add_device() from frame-processing
+    context (which triggers ZCL listener registration side-effects in
+    zigpy >= 1.2).
+    """
+    if not hasattr(self, 'callBackGetAllDevices') or not self.callBackGetAllDevices:
+        LOGGER.error("_preload_devices_from_plugin_db: callBackGetAllDevices is not defined")
+        return
+
+    devices = self.callBackGetAllDevices()
+    loaded = 0
+    for ieee_int, nwk_int in devices:
+        eui64 = zigpy_t.EUI64(zigpy_t.uint64_t(ieee_int).serialize())
+        if eui64 not in self.devices:
+            self.add_device(eui64, nwk_int)
+            loaded += 1
+
+    LOGGER.info("Pre-loaded %d devices from plugin DB into zigpy device table", loaded)
+
+
 def handle_join( self, nwk: zigpy_t.NWK, ieee: zigpy_t.EUI64, parent_nwk: zigpy_t.NWK, handle_rejoin: bool = True, ) -> None:
     """
     Handle a device join or rejoin announcement on the Zigbee network.

@@ -856,6 +856,19 @@ class BasePlugin:
         return int(nwkid,16) ,int(ieee,16)
 
 
+    def zigpy_get_all_devices(self):
+        """Return all known devices as (ieee_int, nwk_int) pairs for startup pre-loading into zigpy."""
+        result = []
+        for nwk_str, info in self.ListOfDevices.items():
+            ieee_str = info.get('IEEE')
+            if not ieee_str:
+                continue
+            try:
+                result.append((int(ieee_str, 16), int(nwk_str, 16)))
+            except (ValueError, TypeError):
+                pass
+        return result
+
     def zigpy_backup_available(self, backups):
         handle_zigpy_backup(self, backups)
 
@@ -1131,6 +1144,7 @@ def _start_zigpy_backend(self, backend_key):
         self.processFrame,
         self.zigpy_chk_upd_device,
         self.zigpy_get_device,
+        self.zigpy_get_all_devices,
         self.zigpy_backup_available,
         self.restart_plugin,
         self.log,
