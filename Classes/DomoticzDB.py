@@ -19,6 +19,7 @@ License: GPL-3.0
 GitHub: https://github.com/zigbeefordomoticz/Domoticz-Zigbee
 """
 
+
 import base64
 import gc
 import json
@@ -102,6 +103,7 @@ class DomoticzAPIClient:
 
         self._parse_url()
 
+
     def stop(self):
         """Stops the worker thread cleanly."""
 
@@ -121,11 +123,17 @@ class DomoticzAPIClient:
         with self._device_caches_lock:
             self._device_caches.clear()
 
+        # Break the circular reference DomoticzAPIClient._device_caches <-> DomoticzDeviceCache.api
+        # so the garbage collector can reclaim both objects without waiting for a GC cycle.
+        with self._device_caches_lock:
+            self._device_caches.clear()
+
 
     def logging(self, level, msg):
         """Wrapper for logging through plugin logger."""
         if self.log:
             self.log.logging("DZapi", level, msg)
+
 
     def dump_stats(self):
         """
@@ -167,6 +175,7 @@ class DomoticzAPIClient:
             self.logging("Debug", f"  _inflight:   {inflight_items}")
         for stat in device_cache_stats:
             self.logging("Log", f"  DeviceCache: {stat}")
+
 
     # ------------------------------
     # URL / Auth Helpers
@@ -339,6 +348,7 @@ class DomoticzAPIClient:
                     self._set_cache(cache_key, data)
                     # Update per-device caches for getdevices responses only
                     if "rid=" in query or "result" in data:
+
                         with self._device_caches_lock:
                             caches = list(self._device_caches)
                         for cache in caches:
@@ -531,6 +541,7 @@ class DomoticzDeviceCache:
         if len(devices) > 1:
             self._prune_stale_devices()
 
+
     def _prune_stale_devices(self):
         """Remove devices not seen in two full cache cycles to prevent unbounded growth."""
         cutoff = time.time() - (2 * CACHE_TIMEOUT)
@@ -541,6 +552,7 @@ class DomoticzDeviceCache:
                 self._last_refresh.pop(idx, None)
         if stale:
             self.api.logging("Debug", f"Pruned {len(stale)} stale device cache entries")
+
 
     def _update_single_device(self, d):
         """
