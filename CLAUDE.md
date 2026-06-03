@@ -10,6 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Python**: 3.11+ required
 - **Domoticz**: 2025.1+ required
 - **Key Dependencies**: zigpy, zigpy-znp, bellows, zigpy-deconz, z4d-certified-devices
+- **ZiGate**: best-effort only — not actively supported; do not write ZiGate-specific code
 
 ## Architecture Overview
 
@@ -44,7 +45,9 @@ plugin.py (entry point, ~2000 lines)
 ├── Conf/
 │   ├── ZclDefinitions/        # ZCL cluster attribute definitions
 │   └── Local-Devices/         # User device configurations
-└── OTAFirmware/               # Over-The-Air firmware for devices
+├── OTAFirmware/               # Over-The-Air firmware for devices
+├── Tools/                     # CLI scripts and maintenance utilities
+└── www/z4d/                   # Minimal web assets (full UI lives in Domoticz-Zigbee-UI repo)
 ```
 
 ### Key Design Patterns
@@ -269,6 +272,8 @@ self.log("debug", "Details", "ModuleName")
 **Verbose Logging:** Controlled by `PluginConf.VerboseLogging` categories (e.g., "Heartbeat", "Input", "Device", etc.).
 
 **Log Files:** Stored in `Logs/` directory (or configured path).
+
+**Logging discipline:** Logs must be useful, not noisy. Errors should be actionable and non-fatal where possible.
 
 ## Common Tasks
 
